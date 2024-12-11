@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quantum Puzzle</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.20.0/cytoscape.min.js"></script>
+    <style>
+        #cy {
+            width: 800px;
+            height: 600px;
+            border: 1px solid black;
+        }
+        #guessForm {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Quantum Puzzle</h1>
+    <div id="cy"></div>
+    <form id="guessForm">
+        <input type="text" id="guessInput" placeholder="Enter guesses as pairs (e.g., 0-1, 2-3)">
+        <button id="submitGuesses" type="button">Submit Guesses</button>
+    </form>
+    <div id="feedback"></div>
+
+    <script>
+        let correctPairs = [];
+
+        // Fetch the puzzle from the backend
+        fetch('http://127.0.0.1:5000/puzzle')
+            .then(response => response.json())
+            .then(data => {
+                console.log("Puzzle data received:", data);
+                correctPairs = data.pairs;
+
+                let cy = cytoscape({
+                    container: document.getElementById('cy'),
+                    style: [
+                        {
+                            selector: 'node',
+                            style: {
+                                'background-color': '#0074D9',
+                                'label': 'data(id)',
+                                'font-size': '20px',
+                                'color': '#fff',
+                                'width': '40px',
+                                'height': '40px',
+                                'text-valign': 'center'
+                            }
+                        },
+                        {
+                            selector: 'edge',
+                            style: {
+                                'width': 3,
+                                'line-color': '#FF851B',
+                                'target-arrow-shape': 'triangle',
+                                'target-arrow-color': '#FF851B'
+                            }
+                        }
+                    ],
+                    layout: {
+                        name: 'grid',
+                        fit: true,
+                        avoidOverlap: true
+                    },
+                    zoom: 1
+                });
+
+                let nodes = [];
+                for (let i = 0; i < 5; i++) {
+                    nodes.push({ data: { id: i } });
+                }
+
+                let edges = [];
+                data.pairs.forEach(pair => {
+                    edges.push({ data: { source: pair[0], target: pair[1] } });
+                });
+
+                cy.add(nodes);
+                cy.add(edges);
+                cy.center();
+            });
+
+        // Submit guesses to the backend
+        document.getElementById('submitGuesses').addEventListener('click', function() {
+            const guessInput = document.getElementById('guessInput').value;
+            const guesses = guessInput.split(',').map(pair => pair.split('-').map(Number));
+
+            fetch('http://127.0.0.1:5000/check_guesses', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    guesses: guesses,
+                    correct_pairs: correctPairs
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('feedback').innerHTML = `Correct Pairs: ${data.correct_guesses}/${data.total_pairs}`;
+            });
+        });
+    </script>
+</body>
+</html>
+
